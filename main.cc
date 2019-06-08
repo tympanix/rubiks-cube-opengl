@@ -6,6 +6,7 @@
 #include <vector>
 #include <map>
 
+
 enum Move {U, D, L, R, F, B, M};
 
 class Cube {
@@ -18,8 +19,9 @@ class Cube {
         z = (i % 9) / 3; 
     }
     
-    int i;
-    int x, y, z;
+    int i = 0;
+    int x = 0, y = 0, z = 0;
+    float rx = 0, ry = 0, rz = 0;
 
     void draw() {
         glPushMatrix();
@@ -36,16 +38,18 @@ class Cube {
 
         GLfloat colors[] =
         {
-            0, 0, 0,   0, 0, 1,   0, 1, 1,   0, 1, 0,
-            1, 0, 0,   1, 0, 1,   1, 1, 1,   1, 1, 0,
-            0, 0, 0,   0, 0, 1,   1, 0, 1,   1, 0, 0,
-            0, 1, 0,   0, 1, 1,   1, 1, 1,   1, 1, 0,
-            0, 0, 0,   0, 1, 0,   1, 1, 0,   1, 0, 0,
-            0, 0, 1,   0, 1, 1,   1, 1, 1,   1, 0, 1
+            0, 1, 1,   0, 1, 1,   0, 1, 1,   0, 1, 1,
+            1, 0, 0,   1, 0, 0,   1, 0, 0,   1, 0, 0,
+            0, 1, 0,   0, 1, 0,   0, 1, 0,   0, 1, 0,
+            0, 0, 1,   0, 0, 1,   0, 0, 1,   0, 0, 1,
+            1, 1, 0,   1, 1, 0,   1, 1, 0,   1, 1, 0,
+            1, 0, 1,   1, 0, 1,   1, 0, 1,   1, 0, 1
         };
 
-        //attempt to rotate cube
         glTranslatef(2*x-2,2*y-2,2*z-2);
+        glRotatef(rx, 1, 0, 0);
+        glRotatef(ry, 0, 1, 0);
+        glRotatef(rz, 0, 0, 1);
 
         /* We have a color array and a vertex array */
         glEnableClientState(GL_VERTEX_ARRAY);
@@ -106,16 +110,11 @@ class Rubiks {
     int SIZE = 3;
 
     void move(Move m) {
-        std::vector<int> perm = Rubiks::permute(faces[m], false);
-        std::vector<Cube*> copy = positions;
-
-        for (int i = 0; i < perm.size(); i++) {
-            copy[faces[m][i]] = positions[perm[i]];
+        for (int i = 0; i < faces[m].size(); i++) {
+            positions[faces[m][i]]->rx += 90;
         }
-
-        for (int i = 0; i < positions.size(); i++) {
-            positions[i] = copy[i];
-        }
+        printf("Rotate..!\n");
+        return;
     }
     
     std::vector<int> permute(std::vector<int> face, bool rev) {
@@ -146,15 +145,28 @@ class Rubiks {
     }
 };
 
-void controls(GLFWwindow* window, int key, int scancode, int action, int mods)
-{
-    if(action == GLFW_PRESS)
+Rubiks *r = new Rubiks();
+
+void controls(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    if(action == GLFW_PRESS) {
         if(key == GLFW_KEY_ESCAPE)
             glfwSetWindowShouldClose(window, GL_TRUE);
+        if (key == GLFW_KEY_1)
+            r->move(Move::L);
+        if (key == GLFW_KEY_2)
+            r->move(Move::R);
+        if (key == GLFW_KEY_3)
+            r->move(Move::U);
+        if (key == GLFW_KEY_4)
+            r->move(Move::B);
+        if (key == GLFW_KEY_5)
+            r->move(Move::F);
+        if (key == GLFW_KEY_6)
+            r->move(Move::B);
+    }
 }
 
-GLFWwindow* initWindow(const int resX, const int resY)
-{
+GLFWwindow* initWindow(const int resX, const int resY) {
     if(!glfwInit())
     {
         fprintf(stderr, "Failed to initialize GLFW\n");
@@ -187,7 +199,6 @@ GLFWwindow* initWindow(const int resX, const int resY)
 }
 
 void display( GLFWwindow* window ) {
-    Rubiks *r = new Rubiks();
 
     while(!glfwWindowShouldClose(window))
     {
@@ -224,8 +235,7 @@ void display( GLFWwindow* window ) {
     }
 }
 
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv) {
     GLFWwindow* window = initWindow(1024, 620);
     if( NULL != window )
     {
