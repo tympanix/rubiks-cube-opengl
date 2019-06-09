@@ -14,14 +14,18 @@ class Cube {
     public:
     Cube(int _i) {
         i = _i;
-        y = i / 9; 
-        x = i % 3;
-        z = (i % 9) / 3; 
+        setPosition(i);
     }
     
     int i = 0;
     int x = 0, y = 0, z = 0;
     float rx = 0, ry = 0, rz = 0;
+
+    void setPosition(int i) {
+        y = i / 9; 
+        x = i % 3;
+        z = (i % 9) / 3; 
+    }
 
     void draw() {
         glPushMatrix();
@@ -68,67 +72,123 @@ class Cube {
     }
 };
 
+struct faceSelect {
+    int x = -1, y = -1, z = -1;
+};
+
 class Rubiks {
 
     public:
     Rubiks() {
-        for (int i = 0; i < 27; i++) {
+        for (int i = 0; i < SIZE*SIZE*SIZE; i++) {
             positions.push_back(new Cube(i));
         }
-        
-        faces[Move::U] = {
-            0, 1, 2, 3, 4, 5, 6, 7, 8
-        };
-        
-        faces[Move::D] = {
-            18, 19, 20, 21, 22, 23, 24, 25, 26
-        };
+    }
 
-        faces[Move::L] = {
-            0, 3, 6, 9, 12, 15, 18, 21, 24
-        };
+    bool isCubeOnFace(const faceSelect &s, const Cube *c) {
+        if (s.x >= 0 && c->x == s.x) {
+            return true;
+        }
+        if (s.y >= 0 && c->y == s.y) {
+            return true;
+        }
+        if (s.z >= 0 && c->z == s.z) {
+            return true;
+        }
+        return false;
+    }
 
-        faces[Move::R] = {
-            2, 5, 8, 11, 14, 17, 20, 23, 26
-        };
+    faceSelect moveToSelector(Move m) {
+        faceSelect s;
+        int x = -1, y = -1, z = -1;
 
-        faces[Move::F] = {
-            6, 7, 8, 15, 16, 17, 24, 25, 26
-        };
+        switch (m) {
+        case U:
+            s.y = 2;
+            break;
+        case D:
+            s.y = 0;
+            break;
+        case L:
+            s.x = 0;
+            break;
+        case R:
+            s.x = 2;
+            break;
+        case F:
+            s.z = 0;
+            break;
+        case B:
+            s.z = 2;
+            break;
+        case M:
+            s.x = 1;
+            break;
+        default:
+            break;
+        }
 
-        faces[Move::B] = {
-            0, 1, 2, 9, 10, 11, 18, 19, 20
-        };
-
-        faces[Move::M] = {
-            1, 4, 7, 10, 13, 16, 19, 22, 25
-        };
+        return s;
+    }
+    
+    std::vector<Cube*> selectFace(faceSelect &s) {
+        std::vector<Cube*> face;
+        for (int i = 0; i < positions.size(); i++) {
+            if (isCubeOnFace(s, positions[i])) {
+                face.push_back(positions[i]);
+            }
+        }
+        return face;
     }
 
     std::vector<Cube*> positions;
-    std::map< Move, std::vector<int> > faces;
     int SIZE = 3;
 
     void move(Move m) {
-        for (int i = 0; i < faces[m].size(); i++) {
-            positions[faces[m][i]]->rx += 90;
+        // select face
+        faceSelect s = moveToSelector(m);
+        std::vector<Cube*> face = selectFace(s);
+
+        // permute face
+        std::vector<Cube*> perm = face;
+        for (int i = 0; i < perm.size(); i++) {
+            int perm_idx = 2 * SIZE - i % 3 * SIZE + i / 3;
+            perm[i] = face[perm_idx];
         }
+        
+        // rotate each cube in face
+        for (int i = 0; i < perm.size(); i++) {
+            if (s.x >= 0) {
+                perm[i]->rx += 90;
+            } else if (s.y >= 0) {
+                perm[i]->ry += 90;
+            } else if (s.z >= 0) {
+                perm[i]->rz += 90;
+            }
+        }
+
+        // copy back face
+        int j = 0;
+        for (int i = 0; i < positions.size(); i++) {
+            if (isCubeOnFace(s, positions[i])) {
+                positions[i] = perm[j];
+                j++;
+            }
+        }
+
+        // apply new positions
+        for (int i = 0; i < positions.size(); i++) {
+            positions[i]->setPosition(i);
+        }
+
         printf("Rotate..!\n");
+
+        if (isSolved()) {
+            printf("Solved!\n");
+        }
         return;
     }
     
-    std::vector<int> permute(std::vector<int> face, bool rev) {
-        std::vector<int> copy = face;
-        for (int i = 0; i < SIZE; i++) {
-            int step = (SIZE-1)*SIZE;
-            int offset = step+1;
-            for (int j = 0; j < SIZE; j++) {
-                copy[i*SIZE+j] = face[(offset+step*j)%(SIZE*SIZE)]; 
-            }
-        }
-        return copy;
-    }
-
     bool isSolved() {
         for (int i = 0; i < positions.size(); i++) {
             if (positions[i]->i != i) {
@@ -158,11 +218,13 @@ void controls(GLFWwindow* window, int key, int scancode, int action, int mods) {
         if (key == GLFW_KEY_3)
             r->move(Move::U);
         if (key == GLFW_KEY_4)
-            r->move(Move::B);
+            r->move(Move::D);
         if (key == GLFW_KEY_5)
             r->move(Move::F);
         if (key == GLFW_KEY_6)
             r->move(Move::B);
+        if (key == GLFW_KEY_7)
+            r->move(Move::M);
     }
 }
 
