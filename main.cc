@@ -125,19 +125,6 @@ class Rubiks {
         }
     }
 
-    bool isCubeOnFace(const faceSelect &s, const Cube *c) {
-        if (s.x >= 0 && c->x == s.x) {
-            return true;
-        }
-        if (s.y >= 0 && c->y == s.y) {
-            return true;
-        }
-        if (s.z >= 0 && c->z == s.z) {
-            return true;
-        }
-        return false;
-    }
-
     faceTransform moveToSelector(Move m) {
         faceSelect s;
         faceRotation r;
@@ -185,7 +172,7 @@ class Rubiks {
     std::vector<Cube*> selectFace(faceSelect &s) {
         std::vector<Cube*> face;
         for (int i = 0; i < positions.size(); i++) {
-            if (isCubeOnFace(s, positions[i])) {
+            if (positions[i]->isOnFace(s)) {
                 face.push_back(positions[i]);
             }
         }
@@ -227,7 +214,7 @@ class Rubiks {
         // copy back face
         int j = 0;
         for (int i = 0; i < positions.size(); i++) {
-            if (isCubeOnFace(t.s, positions[i])) {
+            if (positions[i]->isOnFace(t.s)) {
                 positions[i] = perm[j];
                 j++;
             }
