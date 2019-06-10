@@ -4,10 +4,25 @@
 #include <cstdio>
 #include <unistd.h>
 #include <vector>
+#include <string>
 #include <map>
 
+bool rotate = true;
 
 enum Move {U, D, L, R, F, B, M};
+
+struct faceRotation {
+    float angle = 0, x = 0, y = 0, z = 0;
+};
+
+struct faceSelect {
+    int x = -1, y = -1, z = -1;
+};
+
+struct faceTransform {
+    faceSelect s;
+    faceRotation r;
+};
 
 class Cube {
 
@@ -19,7 +34,7 @@ class Cube {
     
     int i = 0;
     int x = 0, y = 0, z = 0;
-    float rx = 0, ry = 0, rz = 0;
+    std::vector<faceRotation> rots;
 
     void setPosition(int i) {
         y = i / 9; 
@@ -51,9 +66,10 @@ class Cube {
         };
 
         glTranslatef(2*x-2,2*y-2,2*z-2);
-        glRotatef(rx, 1, 0, 0);
-        glRotatef(ry, 0, 1, 0);
-        glRotatef(rz, 0, 0, 1);
+
+        for (int i = rots.size()-1; i >= 0; i--) {
+            glRotatef(rots[i].angle, rots[i].x, rots[i].y, rots[i].z);
+        }
 
         /* We have a color array and a vertex array */
         glEnableClientState(GL_VERTEX_ARRAY);
@@ -70,10 +86,6 @@ class Cube {
         
         glPopMatrix();
     }
-};
-
-struct faceSelect {
-    int x = -1, y = -1, z = -1;
 };
 
 class Rubiks {
@@ -98,37 +110,48 @@ class Rubiks {
         return false;
     }
 
-    faceSelect moveToSelector(Move m) {
+    faceTransform moveToSelector(Move m) {
         faceSelect s;
-        int x = -1, y = -1, z = -1;
+        faceRotation r;
 
         switch (m) {
         case U:
             s.y = 2;
+            r.y = 1;
             break;
         case D:
             s.y = 0;
+            r.y = 1;
             break;
         case L:
             s.x = 0;
+            r.x = 1;
             break;
         case R:
             s.x = 2;
+            r.x = 1;
             break;
         case F:
             s.z = 0;
+            r.z = 1;
             break;
         case B:
             s.z = 2;
+            r.z = 1;
             break;
         case M:
             s.x = 1;
+            r.x = 1;
             break;
         default:
-            break;
+            throw std::invalid_argument("unknown move");
         }
 
-        return s;
+        r.angle = 90.0;
+
+        return {
+            s, r
+        };
     }
     
     std::vector<Cube*> selectFace(faceSelect &s) {
@@ -146,9 +169,14 @@ class Rubiks {
 
     void move(Move m) {
         // select face
-        faceSelect s = moveToSelector(m);
-        std::vector<Cube*> face = selectFace(s);
+        faceTransform t = moveToSelector(m);
+        std::vector<Cube*> face = selectFace(t.s);
 
+        // rotate each cube in face
+        for (int i = 0; i < face.size(); i++) {
+            face[i]->rots.push_back(t.r);
+        }
+        
         // permute face
         std::vector<Cube*> perm = face;
         for (int i = 0; i < perm.size(); i++) {
@@ -156,21 +184,10 @@ class Rubiks {
             perm[i] = face[perm_idx];
         }
         
-        // rotate each cube in face
-        for (int i = 0; i < perm.size(); i++) {
-            if (s.x >= 0) {
-                perm[i]->rx += 90;
-            } else if (s.y >= 0) {
-                perm[i]->ry += 90;
-            } else if (s.z >= 0) {
-                perm[i]->rz += 90;
-            }
-        }
-
         // copy back face
         int j = 0;
         for (int i = 0; i < positions.size(); i++) {
-            if (isCubeOnFace(s, positions[i])) {
+            if (isCubeOnFace(t.s, positions[i])) {
                 positions[i] = perm[j];
                 j++;
             }
@@ -180,8 +197,6 @@ class Rubiks {
         for (int i = 0; i < positions.size(); i++) {
             positions[i]->setPosition(i);
         }
-
-        printf("Rotate..!\n");
 
         if (isSolved()) {
             printf("Solved!\n");
@@ -225,6 +240,9 @@ void controls(GLFWwindow* window, int key, int scancode, int action, int mods) {
             r->move(Move::B);
         if (key == GLFW_KEY_7)
             r->move(Move::M);
+        if (key == GLFW_KEY_SPACE) {
+            rotate = !rotate;
+        }
     }
 }
 
@@ -285,7 +303,8 @@ void display( GLFWwindow* window ) {
         glRotatef(alpha, 0, 1, 0);
         r->draw();
 
-        alpha += 1;
+        if (rotate)
+            alpha += 1;
 
         // Update Screen
         glfwSwapBuffers(window);
