@@ -153,11 +153,11 @@ class Rubiks {
             break;
         case L:
             s.x = 0;
-            r.x = 1;
+            r.x = -1;
             break;
         case R:
             s.x = 2;
-            r.x = 1;
+            r.x = -1;
             break;
         case F:
             s.z = 0;
@@ -169,7 +169,7 @@ class Rubiks {
             break;
         case M:
             s.x = 1;
-            r.x = 1;
+            r.x = -1;
             break;
         default:
             throw std::invalid_argument("unknown move");
