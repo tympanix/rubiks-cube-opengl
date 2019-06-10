@@ -8,6 +8,7 @@
 #include <map>
 
 bool rotate = true;
+float faceR = 0.0;
 
 enum Move {U, D, L, R, F, B, M};
 
@@ -24,6 +25,12 @@ struct faceTransform {
     faceRotation r;
 };
 
+struct faceAnimation {
+    faceAnimation(faceTransform t_) : t(t_) {}
+    faceTransform t;
+    float progress = 0.0;
+};
+
 class Cube {
 
     public:
@@ -35,11 +42,25 @@ class Cube {
     int i = 0;
     int x = 0, y = 0, z = 0;
     std::vector<faceRotation> rots;
+    faceAnimation* anim = nullptr;
 
     void setPosition(int i) {
         y = i / 9; 
         x = i % 3;
         z = (i % 9) / 3; 
+    }
+
+    bool isOnFace(const faceSelect &s) {
+        if (s.x >= 0 && x == s.x) {
+            return true;
+        }
+        if (s.y >= 0 && y == s.y) {
+            return true;
+        }
+        if (s.z >= 0 && z == s.z) {
+            return true;
+        }
+        return false;
     }
 
     void draw() {
@@ -64,6 +85,13 @@ class Cube {
             1, 1, 0,   1, 1, 0,   1, 1, 0,   1, 1, 0,
             1, 0, 1,   1, 0, 1,   1, 0, 1,   1, 0, 1
         };
+        
+        if (anim != nullptr) {
+            if (isOnFace(anim->t.s)) {
+                float p = anim->progress * anim->t.r.angle;
+                glRotatef(p, anim->t.r.x, anim->t.r.y, anim->t.r.z);
+            }
+        }
 
         glTranslatef(2*x-2,2*y-2,2*z-2);
 
@@ -117,11 +145,11 @@ class Rubiks {
         switch (m) {
         case U:
             s.y = 2;
-            r.y = 1;
+            r.y = -1;
             break;
         case D:
             s.y = 0;
-            r.y = 1;
+            r.y = -1;
             break;
         case L:
             s.x = 0;
@@ -165,11 +193,23 @@ class Rubiks {
     }
 
     std::vector<Cube*> positions;
+    std::vector<faceAnimation*> anims;
     int SIZE = 3;
 
-    void move(Move m) {
+    void animate(Move m) {
         // select face
         faceTransform t = moveToSelector(m);
+        std::vector<Cube*> face = selectFace(t.s);
+
+        // assign animation
+        faceAnimation* a = new faceAnimation(t);
+        anims.push_back(a);
+        for (int i = 0; i < face.size(); i++) {
+            face[i]->anim = a;
+        }
+    }
+    
+    void applyTransform(faceTransform t) {
         std::vector<Cube*> face = selectFace(t.s);
 
         // rotate each cube in face
@@ -203,6 +243,10 @@ class Rubiks {
         }
         return;
     }
+
+    void move(Move m) {
+        applyTransform(moveToSelector(m));
+    }
     
     bool isSolved() {
         for (int i = 0; i < positions.size(); i++) {
@@ -214,6 +258,23 @@ class Rubiks {
     }
 
     void draw() {
+        // proceed all animations
+        for (auto a = anims.begin(); a != anims.end();) {
+            if ((*a)->progress >= 1.0) {
+                for (int i = 0; i < positions.size(); i++) {
+                    if (positions[i]->anim == (*a)) {
+                        positions[i]->anim = nullptr;
+                    }
+                }
+                applyTransform((*a)->t);
+                a = anims.erase(a);
+            } else {
+                (*a)->progress += 0.05;
+                ++a;
+            }
+        }
+
+        // draw all cubes
         for (int i = 0; i < positions.size(); i++) {
             positions[i]->draw();
         }
@@ -227,19 +288,19 @@ void controls(GLFWwindow* window, int key, int scancode, int action, int mods) {
         if(key == GLFW_KEY_ESCAPE)
             glfwSetWindowShouldClose(window, GL_TRUE);
         if (key == GLFW_KEY_1)
-            r->move(Move::L);
+            r->animate(Move::L);
         if (key == GLFW_KEY_2)
-            r->move(Move::R);
+            r->animate(Move::R);
         if (key == GLFW_KEY_3)
-            r->move(Move::U);
+            r->animate(Move::U);
         if (key == GLFW_KEY_4)
-            r->move(Move::D);
+            r->animate(Move::D);
         if (key == GLFW_KEY_5)
-            r->move(Move::F);
+            r->animate(Move::F);
         if (key == GLFW_KEY_6)
-            r->move(Move::B);
+            r->animate(Move::B);
         if (key == GLFW_KEY_7)
-            r->move(Move::M);
+            r->animate(Move::M);
         if (key == GLFW_KEY_SPACE) {
             rotate = !rotate;
         }
@@ -305,6 +366,7 @@ void display( GLFWwindow* window ) {
 
         if (rotate)
             alpha += 1;
+        faceR += 0.5;
 
         // Update Screen
         glfwSwapBuffers(window);
