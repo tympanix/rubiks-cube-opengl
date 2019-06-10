@@ -181,7 +181,12 @@ class Rubiks {
 
     std::vector<Cube*> positions;
     std::vector<faceAnimation*> anims;
+    std::vector<Move> queue;
     int SIZE = 3;
+
+    void enqueue(Move m) {
+        queue.push_back(m);
+    }
 
     void animate(Move m) {
         // select face
@@ -245,6 +250,12 @@ class Rubiks {
     }
 
     void draw() {
+        // play next queued animation
+        if (anims.size() == 0 && queue.size() > 0) {
+            animate(queue[0]);
+            queue.erase(queue.begin());
+        }
+
         // proceed all animations
         for (auto a = anims.begin(); a != anims.end();) {
             if ((*a)->progress >= 1.0) {
@@ -274,20 +285,21 @@ void controls(GLFWwindow* window, int key, int scancode, int action, int mods) {
     if(action == GLFW_PRESS) {
         if(key == GLFW_KEY_ESCAPE)
             glfwSetWindowShouldClose(window, GL_TRUE);
+
         if (key == GLFW_KEY_1)
-            r->animate(Move::L);
+            r->enqueue(Move::L);
         if (key == GLFW_KEY_2)
-            r->animate(Move::R);
+            r->enqueue(Move::R);
         if (key == GLFW_KEY_3)
-            r->animate(Move::U);
+            r->enqueue(Move::U);
         if (key == GLFW_KEY_4)
-            r->animate(Move::D);
+            r->enqueue(Move::D);
         if (key == GLFW_KEY_5)
-            r->animate(Move::F);
+            r->enqueue(Move::F);
         if (key == GLFW_KEY_6)
-            r->animate(Move::B);
+            r->enqueue(Move::B);
         if (key == GLFW_KEY_7)
-            r->animate(Move::M);
+            r->enqueue(Move::M);
         if (key == GLFW_KEY_SPACE) {
             rotate = !rotate;
         }
